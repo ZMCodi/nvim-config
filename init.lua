@@ -206,6 +206,16 @@ vim.keymap.set('n', '<C-S-l>', '<C-w>L', { desc = 'Move window to the right' })
 vim.keymap.set('n', '<C-S-j>', '<C-w>J', { desc = 'Move window to the lower' })
 vim.keymap.set('n', '<C-S-k>', '<C-w>K', { desc = 'Move window to the upper' })
 
+-- Keybinds for cycling buffers
+vim.keymap.set('n', '<S-h>', '<cmd>BufferLineCyclePrev<cr>')
+vim.keymap.set('n', '<S-l>', '<cmd>BufferLineCycleNext<cr>')
+vim.keymap.set('n', '<leader>bd', function()
+  require('mini.bufremove').delete(0, false)
+end)
+
+-- Keybind to show diagnostics in a floating window
+vim.keymap.set('n', '<S-e>', vim.diagnostic.open_float)
+
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 
@@ -1041,6 +1051,16 @@ require('lazy').setup({
     },
   },
   { 'github/copilot.vim' },
+  { -- vscode like tabs
+    'akinsho/bufferline.nvim',
+    version = '*',
+    dependencies = 'nvim-tree/nvim-web-devicons',
+    opts = {},
+  },
+  { -- easily delete buffers without losing window layout
+    'echasnovski/mini.bufremove',
+    version = '*',
+  },
 }, {
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
