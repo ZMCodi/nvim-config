@@ -1028,7 +1028,7 @@ require('lazy').setup({
       map_select('il', '@loop.inner', 'Loop')
       map_select('as', '@block.outer', 'Block')
       map_select('is', '@block.inner', 'Block')
-      map_select('ia', '@assignment.inner', 'Assignment')
+      map_select('aa', '@assignment.inner', 'Assignment')
       map_select('aal', '@assignment.lhs', 'Assignment LHS')
       map_select('aar', '@assignment.rhs', 'Assignment RHS')
       map_select('af', '@call.outer', 'Function Call')
@@ -1083,6 +1083,18 @@ require('lazy').setup({
       map_move('n', '@number.inner', 'Number')
       map_move('P', '@parameter.outer', 'Parameter')
       map_move('r', '@return.outer', 'Return')
+
+      local ts_repeat_move = require 'nvim-treesitter-textobjects.repeatable_move'
+
+      -- Repeat movement with ; and ,
+      -- ensure ; goes forward and , goes backward regardless of the last direction
+      vim.keymap.set({ 'n', 'x', 'o' }, ';', ts_repeat_move.repeat_last_move_next)
+      vim.keymap.set({ 'n', 'x', 'o' }, ',', ts_repeat_move.repeat_last_move_previous)
+      -- Optionally, make builtin f, F, t, T also repeatable with ; and ,
+      vim.keymap.set({ 'n', 'x', 'o' }, 'f', ts_repeat_move.builtin_f_expr, { expr = true })
+      vim.keymap.set({ 'n', 'x', 'o' }, 'F', ts_repeat_move.builtin_F_expr, { expr = true })
+      vim.keymap.set({ 'n', 'x', 'o' }, 't', ts_repeat_move.builtin_t_expr, { expr = true })
+      vim.keymap.set({ 'n', 'x', 'o' }, 'T', ts_repeat_move.builtin_T_expr, { expr = true })
     end,
   },
   {
@@ -1136,7 +1148,6 @@ require('lazy').setup({
     config = function()
       require('nvim-surround').setup()
     end,
-    -- WARN: ys, ds, cs conflicts with leap
   },
   { -- multi-cursor selection using <C-d>
     'mg979/vim-visual-multi',
@@ -1301,14 +1312,14 @@ require('lazy').setup({
   { -- leap around the codebase like a monkey
     url = 'https://codeberg.org/andyg/leap.nvim',
     config = function()
-      -- default bindings (s, S)
-      vim.keymap.set({ 'n', 'x', 'o' }, 's', '<Plug>(leap)', { desc = '[S]earch with Leap' })
-      vim.keymap.set('n', 'S', '<Plug>(leap-from-window)', { desc = '[S]earch from windows with Leap' })
+      -- use q here since s is taken by surround
+      vim.keymap.set({ 'n', 'x', 'o' }, 'q', '<Plug>(leap)', { desc = 'Search with Leap' })
+      vim.keymap.set('n', 'Q', '<Plug>(leap-from-window)', { desc = 'Search from windows with Leap' })
 
       -- remote leaps (leap and come back to original position)
-      vim.keymap.set({ 'n', 'x', 'o' }, 'gs', function()
+      vim.keymap.set({ 'n', 'x', 'o' }, 'gq', function()
         require('leap.remote').action()
-      end, { desc = '[G]oto [S]election with Leap' })
+      end, { desc = 'Goto Selection with Leap' })
 
       -- Treesitter selection
       vim.keymap.set({ 'x', 'o' }, 'R', function()
@@ -1319,7 +1330,6 @@ require('lazy').setup({
     end,
   },
   -- TODO:
-  -- - tree-sitter setup
   -- - probably setup marks.nvim (more features guttermarks)
   -- - configure bufferline appearance and learn keymaps
   -- - gitsigns has a lot of useful functionalities. worth looking into for code reviews
