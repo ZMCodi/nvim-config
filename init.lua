@@ -213,6 +213,8 @@ vim.keymap.set('n', '<C-S-k>', '<C-w>K', { desc = 'Move window to the upper' })
 -- Keybinds for cycling buffers
 vim.keymap.set('n', '<S-h>', '<cmd>BufferLineCyclePrev<cr>', { desc = 'Cycle to previous buffer' })
 vim.keymap.set('n', '<S-l>', '<cmd>BufferLineCycleNext<cr>', { desc = 'Cycle to next buffer' })
+vim.keymap.set('n', '<leader>bl', '<cmd>BufferLineMovePrev<cr>', { desc = 'Move buffer left' })
+vim.keymap.set('n', '<leader>br', '<cmd>BufferLineMoveNext<cr>', { desc = 'Move buffer right' })
 vim.keymap.set('n', '<leader>bd', function()
   require('mini.bufremove').delete(0, false)
 end, { desc = 'Delete buffer' })
@@ -1184,7 +1186,17 @@ require('lazy').setup({
     'akinsho/bufferline.nvim',
     version = '*',
     dependencies = 'nvim-tree/nvim-web-devicons',
-    opts = {},
+    opts = {
+      options = {
+        separator_style = 'slant',
+        diagnostics = 'nvim_lsp',
+        diagnostics_update_on_event = true,
+        diagnostics_indicator = function(count, level, diagnostics_dict, context)
+          local icon = level:match 'error' and ' ' or ' '
+          return ' ' .. icon .. count
+        end,
+      },
+    },
   },
   { -- diagnostics, references, telescope results, quickfix and location lists in a pretty list
     'folke/trouble.nvim',
@@ -1331,7 +1343,6 @@ require('lazy').setup({
   },
   -- TODO:
   -- - probably setup marks.nvim (more features guttermarks)
-  -- - configure bufferline appearance and learn keymaps
   -- - gitsigns has a lot of useful functionalities. worth looking into for code reviews
 }, {
   ui = {
