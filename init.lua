@@ -84,6 +84,10 @@ I hope you enjoy your Neovim journey,
 P.S. You can delete this when you're done too. It's your config now! :)
 --]]
 
+-- hack to silent lsp warnings about undefined global `vim`
+-- it still shows up but only once here
+local vim = vim
+
 -- Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
@@ -214,7 +218,7 @@ vim.keymap.set('n', '<leader>bd', function()
 end)
 
 -- Keybind to show diagnostics in a floating window
-vim.keymap.set('n', '<S-e>', vim.diagnostic.open_float)
+vim.keymap.set('n', '<S-e>', vim.diagnostic.open_float, { desc = 'Show diagnostic in floating window' })
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -227,6 +231,17 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
   callback = function()
     vim.hl.on_yank()
+  end,
+})
+
+-- Set for TypeScript/JavaScript files
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'typescript', 'javascript', 'typescriptreact', 'javascriptreact', 'yaml' },
+  callback = function()
+    vim.opt_local.shiftwidth = 2
+    vim.opt_local.softtabstop = 2
+    vim.opt_local.tabstop = 2
+    vim.opt_local.expandtab = true
   end,
 })
 
@@ -1060,6 +1075,118 @@ require('lazy').setup({
   { -- easily delete buffers without losing window layout
     'echasnovski/mini.bufremove',
     version = '*',
+  },
+  { -- diagnostics, references, telescope results, quickfix and location lists in a pretty list
+    'folke/trouble.nvim',
+    opts = {}, -- for default options, refer to the configuration section for custom setup.
+    cmd = 'Trouble',
+    keys = {
+      {
+        '<leader>xx',
+        '<cmd>Trouble diagnostics toggle<cr>',
+        desc = 'Diagnostics (Trouble)',
+      },
+      {
+        '<leader>xX',
+        '<cmd>Trouble diagnostics toggle filter.buf=0<cr>',
+        desc = 'Buffer Diagnostics (Trouble)',
+      },
+      {
+        '<leader>cs',
+        '<cmd>Trouble symbols toggle focus=false<cr>',
+        desc = 'Symbols (Trouble)',
+      },
+      {
+        '<leader>cl',
+        '<cmd>Trouble lsp toggle focus=false win.position=right<cr>',
+        desc = 'LSP Definitions / references / ... (Trouble)',
+      },
+      {
+        '<leader>xL',
+        '<cmd>Trouble loclist toggle<cr>',
+        desc = 'Location List (Trouble)',
+      },
+      {
+        '<leader>xQ',
+        '<cmd>Trouble qflist toggle<cr>',
+        desc = 'Quickfix List (Trouble)',
+      },
+    },
+  },
+  { -- custom statusline
+    'nvim-lualine/lualine.nvim',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    event = 'VeryLazy',
+    config = function()
+      local trouble = require 'trouble'
+      local symbols = trouble.statusline { -- symbol breadcrumbs
+        mode = 'lsp_document_symbols',
+        groups = {},
+        title = false,
+        filter = { range = true },
+        format = '{kind_icon}{symbol.name:Normal}',
+        hl_group = 'lualine_c_normal',
+      }
+
+      -- show active LSP client name
+      local function lsp_name()
+        local clients = vim.lsp.get_clients { bufnr = 0 }
+        local filtered = vim.tbl_filter(function(client)
+          return client.name ~= 'GitHub Copilot' -- not a real LSP lol
+        end, clients)
+
+        if #filtered == 0 then
+          return '  no lsp'
+        end
+        return '  ' .. filtered[1].name
+      end
+
+      require('lualine').setup {
+        options = {
+          theme = 'auto',
+          globalstatus = true, -- single statusline across all splits
+          component_separators = { left = '', right = '' },
+          section_separators = { left = '', right = '' },
+          disabled_filetypes = {
+            statusline = { 'alpha', 'dashboard', 'lazy' },
+          },
+        },
+        sections = {
+          lualine_a = {
+            { 'mode', right_padding = 2 },
+          },
+          lualine_b = {
+            { 'branch', icon = '' },
+            {
+              'diff',
+              symbols = { added = '+', modified = '~', removed = '-' },
+            },
+          },
+          lualine_c = {
+            { 'filename', path = 1, symbols = { modified = '●', readonly = '' } },
+            { symbols.get, cond = symbols.has },
+          },
+          lualine_x = {
+            { lsp_name },
+            {
+              'diagnostics',
+              sources = { 'nvim_diagnostic' },
+              symbols = { error = ' ', warn = ' ', info = '󰋽 ', hint = '󰌶 ' },
+            },
+            { 'filetype', icon_only = true },
+          },
+          lualine_y = { 'progress' },
+          lualine_z = {
+            { 'location', left_padding = 2 },
+          },
+        },
+        inactive_sections = {
+          lualine_c = { { 'filename', path = 1 } },
+          lualine_x = { 'location' },
+        },
+        extensions = { 'trouble', 'lazy', 'quickfix', 'neo-tree', 'nvim-tree' },
+      }
+    end,
   },
 }, {
   ui = {
