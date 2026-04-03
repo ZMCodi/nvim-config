@@ -932,9 +932,21 @@ require('lazy').setup({
       vim.cmd.colorscheme 'tokyonight-night'
     end,
   },
+  { -- Highlight todo, notes, etc in comments
+    'folke/todo-comments.nvim',
+    event = 'VimEnter',
+    dependencies = { 'nvim-lua/plenary.nvim' },
+    opts = {
+      signs = false, -- dont show in gutter
+      vim.keymap.set('n', ']t', function()
+        require('todo-comments').jump_next()
+      end, { desc = 'Next todo comment' }),
 
-  -- Highlight todo, notes, etc in comments
-  { 'folke/todo-comments.nvim', event = 'VimEnter', dependencies = { 'nvim-lua/plenary.nvim' }, opts = { signs = false } },
+      vim.keymap.set('n', '[t', function()
+        require('todo-comments').jump_prev()
+      end, { desc = 'Previous todo comment' }),
+    },
+  },
 
   { -- Collection of various small independent plugins/modules
     'echasnovski/mini.nvim',
@@ -956,6 +968,10 @@ require('lazy').setup({
   },
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    dependencies = {
+      'nvim-treesitter/nvim-treesitter-textobjects',
+      'nvim-treesitter/nvim-treesitter-context',
+    },
     build = ':TSUpdate',
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
@@ -971,6 +987,15 @@ require('lazy').setup({
         additional_vim_regex_highlighting = { 'ruby' },
       },
       indent = { enable = true, disable = { 'ruby' } },
+      incremental_selection = {
+        enable = true,
+        keymaps = {
+          init_selection = 'gnn',
+          node_incremental = '<Tab>',
+          scope_incremental = false,
+          node_decremental = '<BS>',
+        },
+      },
     },
     -- There are additional nvim-treesitter modules that you can use to interact
     -- with nvim-treesitter. You should go explore a few and see what interests you:
@@ -978,6 +1003,94 @@ require('lazy').setup({
     --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
     --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
     --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+  },
+  {
+    'nvim-treesitter/nvim-treesitter-textobjects',
+    config = function()
+      require('nvim-treesitter-textobjects').setup {
+        select = { lookahead = true },
+        move = { set_jumps = true },
+      }
+
+      -- helper function to create keymaps for textobjects selection
+      local function map_select(key, textobject, desc)
+        vim.keymap.set({ 'x', 'o' }, key, function()
+          require('nvim-treesitter-textobjects.select').select_textobject(textobject, 'textobjects')
+        end, { desc = desc })
+      end
+
+      -- select
+      map_select('am', '@function.outer', 'Method')
+      map_select('im', '@function.inner', 'Method')
+      map_select('ac', '@class.outer', 'Class')
+      map_select('ic', '@class.inner', 'Class')
+      map_select('al', '@loop.outer', 'Loop')
+      map_select('il', '@loop.inner', 'Loop')
+      map_select('as', '@block.outer', 'Block')
+      map_select('is', '@block.inner', 'Block')
+      map_select('ia', '@assignment.inner', 'Assignment')
+      map_select('aal', '@assignment.lhs', 'Assignment LHS')
+      map_select('aar', '@assignment.rhs', 'Assignment RHS')
+      map_select('af', '@call.outer', 'Function Call')
+      map_select('if', '@call.inner', 'Function Call')
+      map_select('ai', '@conditional.outer', 'Conditional')
+      map_select('ii', '@conditional.inner', 'Conditional')
+      map_select('in', '@number.inner', 'Number')
+      map_select('aP', '@parameter.outer', 'Parameter')
+      map_select('iP', '@parameter.inner', 'Parameter')
+      map_select('ar', '@return.outer', 'Return')
+      map_select('ir', '@return.inner', 'Return')
+
+      -- swap function parameters
+      vim.keymap.set('n', '<leader>a', function()
+        require('nvim-treesitter-textobjects.swap').swap_next '@parameter.inner'
+      end, { desc = 'swap with next function parameter' })
+      vim.keymap.set('n', '<leader>A', function()
+        require('nvim-treesitter-textobjects.swap').swap_previous '@parameter.outer'
+      end, { desc = 'swap with previous function parameters' })
+
+      -- helper function to create keymaps for textobjects movement
+      local function map_move(key, textobject, desc)
+        -- ]x to go to next start of textobject
+        vim.keymap.set({ 'n', 'x', 'o' }, ']' .. key, function()
+          require('nvim-treesitter-textobjects.move').goto_next_start(textobject, 'textobjects')
+        end, { desc = 'Next start of ' .. desc })
+
+        -- [x to go to previous start of textobject
+        vim.keymap.set({ 'n', 'x', 'o' }, '[' .. key, function()
+          require('nvim-treesitter-textobjects.move').goto_previous_start(textobject, 'textobjects')
+        end, { desc = 'Previous start of ' .. desc })
+
+        -- ]X to go to next end of textobject
+        vim.keymap.set({ 'n', 'x', 'o' }, ']' .. key:upper(), function()
+          require('nvim-treesitter-textobjects.move').goto_next_end(textobject, 'textobjects')
+        end, { desc = 'Next end of ' .. desc })
+
+        -- [X to go to previous end of textobject
+        vim.keymap.set({ 'n', 'x', 'o' }, '[' .. key:upper(), function()
+          require('nvim-treesitter-textobjects.mtove').goto_previous_end(textobject, 'textobjects')
+        end, { desc = 'Previous end of ' .. desc })
+      end
+
+      -- moves
+      map_move('m', '@function.outer', 'Method')
+      map_move('c', '@class.outer', 'Class')
+      map_move('l', '@loop.outer', 'Loop')
+      map_move('s', '@block.outer', 'Block')
+      map_move('a', '@assignment.inner', 'Assignment')
+      map_move('f', '@call.outer', 'Function Call')
+      map_move('i', '@conditional.outer', 'Conditional')
+      map_move('n', '@number.inner', 'Number')
+      map_move('P', '@parameter.outer', 'Parameter')
+      map_move('r', '@return.outer', 'Return')
+    end,
+  },
+  {
+    'nvim-treesitter/nvim-treesitter-context',
+    opts = {
+      multiline_threshold = 3, -- lines for a single context
+      separator = '',
+    },
   },
 
   -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
@@ -1023,6 +1136,7 @@ require('lazy').setup({
     config = function()
       require('nvim-surround').setup()
     end,
+    -- WARN: ys, ds, cs conflicts with leap
   },
   { -- multi-cursor selection using <C-d>
     'mg979/vim-visual-multi',
@@ -1184,7 +1298,7 @@ require('lazy').setup({
     event = { 'BufReadPost', 'BufNewFile', 'BufWritePre', 'FileType' },
   },
   { 'karb94/neoscroll.nvim', opts = {} }, -- smooth scrolling
-  {
+  { -- leap around the codebase like a monkey
     url = 'https://codeberg.org/andyg/leap.nvim',
     config = function()
       -- default bindings (s, S)
@@ -1206,7 +1320,7 @@ require('lazy').setup({
   },
   -- TODO:
   -- - tree-sitter setup
-  -- - probably setup marks.nvim better (more features guttermarks)
+  -- - probably setup marks.nvim (more features guttermarks)
   -- - configure bufferline appearance and learn keymaps
   -- - gitsigns has a lot of useful functionalities. worth looking into for code reviews
 }, {
