@@ -213,9 +213,9 @@ vim.keymap.set('n', '<C-S-k>', '<C-w>K', { desc = 'Move window to the upper' })
 -- Keybinds for cycling buffers
 vim.keymap.set('n', '<S-h>', '<cmd>BufferLineCyclePrev<cr>', { desc = 'Cycle to previous buffer' })
 vim.keymap.set('n', '<S-l>', '<cmd>BufferLineCycleNext<cr>', { desc = 'Cycle to next buffer' })
-vim.keymap.set('n', '<leader>bl', '<cmd>BufferLineMovePrev<cr>', { desc = 'Move buffer left' })
-vim.keymap.set('n', '<leader>br', '<cmd>BufferLineMoveNext<cr>', { desc = 'Move buffer right' })
-vim.keymap.set('n', '<leader>bd', function()
+vim.keymap.set('n', '<A-,>', '<cmd>BufferLineMovePrev<cr>', { desc = 'Move buffer left' })
+vim.keymap.set('n', '<A-.>', '<cmd>BufferLineMoveNext<cr>', { desc = 'Move buffer right' })
+vim.keymap.set('n', '<A-/>', function()
   require('mini.bufremove').delete(0, false)
 end, { desc = 'Delete buffer' })
 
@@ -1028,9 +1028,9 @@ require('lazy').setup({
       map_select('ic', '@class.inner', 'Class')
       map_select('al', '@loop.outer', 'Loop')
       map_select('il', '@loop.inner', 'Loop')
-      map_select('as', '@block.outer', 'Block')
-      map_select('is', '@block.inner', 'Block')
-      map_select('aa', '@assignment.inner', 'Assignment')
+      map_select('ab', '@block.outer', 'Block')
+      map_select('ib', '@block.inner', 'Block')
+      map_select('as', '@assignment.inner', 'Assignment')
       map_select('aal', '@assignment.lhs', 'Assignment LHS')
       map_select('aar', '@assignment.rhs', 'Assignment RHS')
       map_select('af', '@call.outer', 'Function Call')
@@ -1038,8 +1038,8 @@ require('lazy').setup({
       map_select('ai', '@conditional.outer', 'Conditional')
       map_select('ii', '@conditional.inner', 'Conditional')
       map_select('in', '@number.inner', 'Number')
-      map_select('aP', '@parameter.outer', 'Parameter')
-      map_select('iP', '@parameter.inner', 'Parameter')
+      map_select('ax', '@parameter.outer', 'Parameter')
+      map_select('ix', '@parameter.inner', 'Parameter')
       map_select('ar', '@return.outer', 'Return')
       map_select('ir', '@return.inner', 'Return')
 
@@ -1078,12 +1078,12 @@ require('lazy').setup({
       map_move('m', '@function.outer', 'Method')
       map_move('c', '@class.outer', 'Class')
       map_move('l', '@loop.outer', 'Loop')
-      map_move('s', '@block.outer', 'Block')
+      map_move('b', '@block.outer', 'Block')
       map_move('a', '@assignment.inner', 'Assignment')
       map_move('f', '@call.outer', 'Function Call')
       map_move('i', '@conditional.outer', 'Conditional')
       map_move('n', '@number.inner', 'Number')
-      map_move('P', '@parameter.outer', 'Parameter')
+      map_move('x', '@parameter.outer', 'Parameter')
       map_move('r', '@return.outer', 'Return')
 
       local ts_repeat_move = require 'nvim-treesitter-textobjects.repeatable_move'
@@ -1344,6 +1344,7 @@ require('lazy').setup({
   -- TODO:
   -- - probably setup marks.nvim (more features guttermarks)
   -- - gitsigns has a lot of useful functionalities. worth looking into for code reviews
+  -- - nvim-next for repeatable plugin movements (gitsigns, todo-comments, quickfix, diagnostics)
 }, {
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
