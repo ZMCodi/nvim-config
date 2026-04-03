@@ -211,11 +211,11 @@ vim.keymap.set('n', '<C-S-j>', '<C-w>J', { desc = 'Move window to the lower' })
 vim.keymap.set('n', '<C-S-k>', '<C-w>K', { desc = 'Move window to the upper' })
 
 -- Keybinds for cycling buffers
-vim.keymap.set('n', '<S-h>', '<cmd>BufferLineCyclePrev<cr>')
-vim.keymap.set('n', '<S-l>', '<cmd>BufferLineCycleNext<cr>')
+vim.keymap.set('n', '<S-h>', '<cmd>BufferLineCyclePrev<cr>', { desc = 'Cycle to previous buffer' })
+vim.keymap.set('n', '<S-l>', '<cmd>BufferLineCycleNext<cr>', { desc = 'Cycle to next buffer' })
 vim.keymap.set('n', '<leader>bd', function()
   require('mini.bufremove').delete(0, false)
-end)
+end, { desc = 'Delete buffer' })
 
 -- Keybind to show diagnostics in a floating window
 vim.keymap.set('n', '<S-e>', vim.diagnostic.open_float, { desc = 'Show diagnostic in floating window' })
@@ -299,6 +299,7 @@ require('lazy').setup({
   { -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
     opts = {
+      sign_priority = 14, -- prefer over diagnostic
       signs = {
         add = { text = '+' },
         change = { text = '~' },
@@ -405,6 +406,9 @@ require('lazy').setup({
 
       -- Useful for getting pretty icons, but requires a Nerd Font.
       { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
+
+      -- Send Telescope results to Trouble
+      { 'folke/trouble.nvim', opts = {} },
     },
     config = function()
       -- Telescope is a fuzzy finder that comes with a lot of different things that
@@ -428,15 +432,19 @@ require('lazy').setup({
 
       -- [[ Configure Telescope ]]
       -- See `:help telescope` and `:help telescope.setup()`
+      local open_with_trouble = require('trouble.sources.telescope').open
       require('telescope').setup {
         -- You can put your default mappings / updates / etc. in here
         --  All the info you're looking for is in `:help telescope.setup()`
         --
-        -- defaults = {
-        --   mappings = {
-        --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-        --   },
-        -- },
+        defaults = {
+          mappings = {
+            -- i = { ['<c-enter>'] = 'to_fuzzy_refine' },
+            -- send to Trouble so we can cycle through results
+            n = { ['<c-t>'] = open_with_trouble },
+            i = { ['<c-t>'] = open_with_trouble },
+          },
+        },
         -- pickers = {}
         extensions = {
           ['ui-select'] = {
@@ -939,27 +947,8 @@ require('lazy').setup({
       --  - ci'  - [C]hange [I]nside [']quote
       require('mini.ai').setup { n_lines = 500 }
 
-      -- Add/delete/replace surroundings (brackets, quotes, etc.)
-      --
-      -- - saiw) - [S]urround [A]dd [I]nner [W]ord [)]Paren
-      -- - sd'   - [S]urround [D]elete [']quotes
-      -- - sr)'  - [S]urround [R]eplace [)] [']
-      require('mini.surround').setup()
-
-      -- Simple and easy statusline.
-      --  You could remove this setup call if you don't like it,
-      --  and try some other statusline plugin
-      local statusline = require 'mini.statusline'
-      -- set use_icons to true if you have a Nerd Font
-      statusline.setup { use_icons = vim.g.have_nerd_font }
-
-      -- You can configure sections in the statusline by overriding their
-      -- default behavior. For example, here we set the section for
-      -- cursor location to LINE:COLUMN
-      ---@diagnostic disable-next-line: duplicate-set-field
-      statusline.section_location = function()
-        return '%2l:%-2v'
-      end
+      -- easily delete buffers without losing window layout
+      require 'mini.bufremove'
 
       -- ... and there is more!
       --  Check out: https://github.com/echasnovski/mini.nvim
@@ -1071,10 +1060,6 @@ require('lazy').setup({
     version = '*',
     dependencies = 'nvim-tree/nvim-web-devicons',
     opts = {},
-  },
-  { -- easily delete buffers without losing window layout
-    'echasnovski/mini.bufremove',
-    version = '*',
   },
   { -- diagnostics, references, telescope results, quickfix and location lists in a pretty list
     'folke/trouble.nvim',
@@ -1188,6 +1173,42 @@ require('lazy').setup({
       }
     end,
   },
+  { -- add marks in gutter
+    'dimtion/guttermarks.nvim',
+    opts = {
+      -- prefer marks over git signs
+      local_mark = { priority = 15 },
+      global_mark = { priority = 16 },
+      special_mark = { priority = 17 },
+    },
+    event = { 'BufReadPost', 'BufNewFile', 'BufWritePre', 'FileType' },
+  },
+  { 'karb94/neoscroll.nvim', opts = {} }, -- smooth scrolling
+  {
+    url = 'https://codeberg.org/andyg/leap.nvim',
+    config = function()
+      -- default bindings (s, S)
+      vim.keymap.set({ 'n', 'x', 'o' }, 's', '<Plug>(leap)', { desc = '[S]earch with Leap' })
+      vim.keymap.set('n', 'S', '<Plug>(leap-from-window)', { desc = '[S]earch from windows with Leap' })
+
+      -- remote leaps (leap and come back to original position)
+      vim.keymap.set({ 'n', 'x', 'o' }, 'gs', function()
+        require('leap.remote').action()
+      end, { desc = '[G]oto [S]election with Leap' })
+
+      -- Treesitter selection
+      vim.keymap.set({ 'x', 'o' }, 'R', function()
+        require('leap.treesitter').select {
+          opts = require('leap.user').with_traversal_keys('R', 'r'),
+        }
+      end, { desc = 'Leap Treesitter Selection' })
+    end,
+  },
+  -- TODO:
+  -- - tree-sitter setup
+  -- - probably setup marks.nvim better (more features guttermarks)
+  -- - configure bufferline appearance and learn keymaps
+  -- - gitsigns has a lot of useful functionalities. worth looking into for code reviews
 }, {
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
