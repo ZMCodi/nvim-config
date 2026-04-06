@@ -114,6 +114,9 @@ vim.o.mouse = 'a'
 -- Don't show the mode, since it's already in the status line
 vim.o.showmode = false
 
+-- Start all files unfolded
+vim.o.foldlevelstart = 99
+
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
 --  Remove this option if you want your OS clipboard to remain independent.
@@ -219,8 +222,15 @@ vim.keymap.set('n', '<A-/>', function()
   require('mini.bufremove').delete(0, false)
 end, { desc = 'Delete buffer' })
 
+-- LSP peeks
+vim.keymap.set('n', 'gD', '<CMD>Glance definitions<CR>', { desc = 'Glance Definitions' })
+vim.keymap.set('n', 'gR', '<CMD>Glance references<CR>', { desc = 'Glance References' })
+vim.keymap.set('n', 'gY', '<CMD>Glance type_definitions<CR>', { desc = 'Glance Type Definitions' })
+vim.keymap.set('n', 'gM', '<CMD>Glance implementations<CR>', { desc = 'Glance Implementations' })
+
 -- Keybind to show diagnostics in a floating window
 vim.keymap.set('n', '<S-e>', vim.diagnostic.open_float, { desc = 'Show diagnostic in floating window' })
+vim.keymap.set('n', '+', 'q', { noremap = true, desc = 'Record macro' }) -- remap macro since q is leap.nvim
 
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
@@ -970,27 +980,67 @@ require('lazy').setup({
   },
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
+    branch = 'main',
+    build = ':TSUpdate',
     dependencies = {
-      'nvim-treesitter/nvim-treesitter-textobjects',
+      { 'nvim-treesitter/nvim-treesitter-textobjects', branch = 'main' },
       'nvim-treesitter/nvim-treesitter-context',
     },
-    build = ':TSUpdate',
-    main = 'nvim-treesitter.configs', -- Sets main module to use for opts
+
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+    config = function()
+      -- treesitter removed auto-install so everything is opt-in now
+      require('nvim-treesitter').install {
+        'bash',
+        'c',
+        'diff',
+        'html',
+        'lua',
+        'luadoc',
+        'markdown',
+        'markdown_inline',
+        'query',
+        'vim',
+        'vimdoc',
+        'go',
+        'python',
+        'cpp',
+        'yaml',
+        'dockerfile',
+        'cmake',
+        'comment',
+      }
+
+      -- syntax highlighting
+      vim.api.nvim_create_autocmd('FileType', {
+        callback = function()
+          -- syntax highlighting
+          if pcall(vim.treesitter.start) then
+            -- indentation
+            vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+            -- folding using `z`
+            vim.wo[0][0].foldmethod = 'expr'
+            vim.wo[0][0].foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+          end
+        end,
+      })
+    end,
+    -- There are additional nvim-treesitter modules that you can use to interact
+    -- with nvim-treesitter. You should go explore a few and see what interests you:
+    --
+    --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
+    --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
+    --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
+  },
+  { -- replacent for incremental selection in nvim-treesitter since they removed it in the main branch
+    'MeanderingProgrammer/treesitter-modules.nvim',
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
+    ---@module 'treesitter-modules'
+    ---@type ts.mod.UserConfig
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
-      -- Autoinstall languages that are not installed
-      auto_install = true,
-      highlight = {
-        enable = true,
-        -- Some languages depend on vim's regex highlighting system (such as Ruby) for indent rules.
-        --  If you are experiencing weird indenting issues, add the language to
-        --  the list of additional_vim_regex_highlighting and disabled languages for indent.
-        additional_vim_regex_highlighting = { 'ruby' },
-      },
-      indent = { enable = true, disable = { 'ruby' } },
       incremental_selection = {
         enable = true,
+        disable = false,
         keymaps = {
           init_selection = 'gnn',
           node_incremental = '<Tab>',
@@ -999,15 +1049,10 @@ require('lazy').setup({
         },
       },
     },
-    -- There are additional nvim-treesitter modules that you can use to interact
-    -- with nvim-treesitter. You should go explore a few and see what interests you:
-    --
-    --    - Incremental selection: Included, see `:help nvim-treesitter-incremental-selection-mod`
-    --    - Show your current context: https://github.com/nvim-treesitter/nvim-treesitter-context
-    --    - Treesitter + textobjects: https://github.com/nvim-treesitter/nvim-treesitter-textobjects
   },
   {
     'nvim-treesitter/nvim-treesitter-textobjects',
+    branch = 'main',
     config = function()
       require('nvim-treesitter-textobjects').setup {
         select = { lookahead = true },
@@ -1037,9 +1082,9 @@ require('lazy').setup({
       map_select('if', '@call.inner', 'Function Call')
       map_select('ai', '@conditional.outer', 'Conditional')
       map_select('ii', '@conditional.inner', 'Conditional')
-      map_select('in', '@number.inner', 'Number')
-      map_select('ax', '@parameter.outer', 'Parameter')
-      map_select('ix', '@parameter.inner', 'Parameter')
+      map_select('ix', '@number.inner', 'Number')
+      map_select('az', '@parameter.outer', 'Parameter')
+      map_select('iz', '@parameter.inner', 'Parameter')
       map_select('ar', '@return.outer', 'Return')
       map_select('ir', '@return.inner', 'Return')
 
@@ -1070,7 +1115,7 @@ require('lazy').setup({
 
         -- [X to go to previous end of textobject
         vim.keymap.set({ 'n', 'x', 'o' }, '[' .. key:upper(), function()
-          require('nvim-treesitter-textobjects.mtove').goto_previous_end(textobject, 'textobjects')
+          require('nvim-treesitter-textobjects.move').goto_previous_end(textobject, 'textobjects')
         end, { desc = 'Previous end of ' .. desc })
       end
 
@@ -1082,8 +1127,8 @@ require('lazy').setup({
       map_move('a', '@assignment.inner', 'Assignment')
       map_move('f', '@call.outer', 'Function Call')
       map_move('i', '@conditional.outer', 'Conditional')
-      map_move('n', '@number.inner', 'Number')
-      map_move('x', '@parameter.outer', 'Parameter')
+      map_move('x', '@number.inner', 'Number')
+      map_move('z', '@parameter.outer', 'Parameter')
       map_move('r', '@return.outer', 'Return')
 
       local ts_repeat_move = require 'nvim-treesitter-textobjects.repeatable_move'
@@ -1341,10 +1386,16 @@ require('lazy').setup({
       end, { desc = 'Leap Treesitter Selection' })
     end,
   },
+  { -- glance in a split window
+    'dnlhc/glance.nvim',
+    cmd = 'Glance',
+  },
   -- TODO:
   -- - probably setup marks.nvim (more features guttermarks)
   -- - gitsigns has a lot of useful functionalities. worth looking into for code reviews
   -- - nvim-next for repeatable plugin movements (gitsigns, todo-comments, quickfix, diagnostics)
+  -- - visual multi is bugging
+  -- - look at plugins from mini and snacks
 }, {
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
