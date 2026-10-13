@@ -232,6 +232,14 @@ vim.keymap.set('n', 'gM', '<CMD>Glance implementations<CR>', { desc = 'Glance Im
 vim.keymap.set('n', '<S-e>', vim.diagnostic.open_float, { desc = 'Show diagnostic in floating window' })
 vim.keymap.set('n', '+', 'q', { noremap = true, desc = 'Record macro' }) -- remap macro since q is leap.nvim
 
+-- Cycle through Trouble diagnostics
+vim.keymap.set('n', ']q', function()
+  require('trouble').next { jump = true }
+end, { desc = 'Next Trouble item' })
+vim.keymap.set('n', '[q', function()
+  require('trouble').prev { jump = true }
+end, { desc = 'Previous Trouble item' })
+
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 
@@ -243,6 +251,27 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
   callback = function()
     vim.hl.on_yank()
+  end,
+})
+
+-- Register TableGen (.td) files, used by LLVM/MLIR dialect/op definitions
+vim.filetype.add {
+  extension = {
+    td = 'tablegen',
+    slurm = 'sh', -- Slurm job scripts: treat like shell scripts
+  },
+}
+
+-- Template for new .slurm files.
+vim.api.nvim_create_autocmd({ 'BufNewFile', 'BufReadPost' }, {
+  pattern = '*.slurm',
+  group = vim.api.nvim_create_augroup('slurm-template', { clear = true }),
+  callback = function(args)
+    if vim.api.nvim_buf_line_count(args.buf) > 1 or vim.api.nvim_buf_get_lines(args.buf, 0, 1, false)[1] ~= '' then
+      return
+    end
+    vim.cmd('0r ' .. vim.fn.stdpath 'config' .. '/templates/skeleton.slurm')
+    vim.cmd 'normal! G'
   end,
 })
 
@@ -385,6 +414,7 @@ require('lazy').setup({
         { '<leader>s', group = '[S]earch' },
         { '<leader>t', group = '[T]oggle' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
+        { '<leader>g', group = '[G]it', mode = { 'n', 'v' } },
       },
     },
   },
@@ -473,12 +503,8 @@ require('lazy').setup({
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
       vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-      vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
       vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
-      vim.keymap.set('n', '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
-      vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
       vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
-      vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
 
@@ -499,14 +525,53 @@ require('lazy').setup({
           prompt_title = 'Live Grep in Open Files',
         }
       end, { desc = '[S]earch [/] in Open Files' })
-
-      -- Shortcut for searching your Neovim configuration files
-      vim.keymap.set('n', '<leader>sn', function()
-        builtin.find_files { cwd = vim.fn.stdpath 'config' }
-      end, { desc = '[S]earch [N]eovim files' })
     end,
   },
 
+  { -- Fast fuzzy file finder (Rust backend, frecency + git-aware ranking)
+    'dmtrKovalenko/fff.nvim',
+    build = function()
+      -- downloads a prebuilt binary, falls back to `cargo build --release`
+      require('fff.download').download_or_build_binary()
+    end,
+    lazy = false, -- plugin lazy-initialises itself
+    config = function(_, opts)
+      local fff = require 'fff'
+      fff.setup(opts)
+
+      -- Track whether fff or Telescope was used last so <leader>sr resumes the right one
+      local function pick(fn)
+        return function()
+          vim.g.last_picker = 'fff'
+          fn()
+        end
+      end
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = 'TelescopePrompt',
+        callback = function()
+          vim.g.last_picker = 'telescope'
+        end,
+      })
+
+      vim.keymap.set('n', '<leader>sf', pick(fff.find_files), { desc = '[S]earch [F]iles' })
+      vim.keymap.set(
+        'n',
+        '<leader>sn',
+        pick(function()
+          fff.find_files_in_dir(vim.fn.stdpath 'config')
+        end),
+        { desc = '[S]earch [N]eovim files' }
+      )
+      vim.keymap.set('n', '<leader>sg', pick(fff.live_grep), { desc = '[S]earch by [G]rep' })
+      vim.keymap.set({ 'n', 'v' }, '<leader>sw', pick(fff.live_grep_under_cursor), { desc = '[S]earch current [W]ord' })
+      vim.keymap.set('n', '<leader>sr', function()
+        if vim.g.last_picker == 'fff' and fff.resume() then
+          return
+        end
+        require('telescope.builtin').resume()
+      end, { desc = '[S]earch [R]esume' })
+    end,
+  },
   -- LSP Plugins
   {
     -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
@@ -719,6 +784,7 @@ require('lazy').setup({
         clangd = {},
         gopls = {},
         pyright = {},
+        bashls = {},
         -- rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
@@ -778,6 +844,22 @@ require('lazy').setup({
           end,
         },
       }
+
+      -- TableGen LSP (.td files). Not in Mason; built from LLVM source.
+      -- Setup/rebuild: ~/code/oss/stablehlo/.claude/SETUP.md
+      --
+      -- cmd_cwd must stay outside the repo or it crashes on repo-root-relative
+      -- includes: https://github.com/llvm/llvm-project/issues/63683
+      vim.lsp.config('tblgen_lsp_server', {
+        cmd = {
+          vim.fn.expand '~/code/oss/stablehlo/llvm-build/bin/tblgen-lsp-server',
+          '--tablegen-compilation-database=' .. vim.fn.expand '~/code/oss/stablehlo/build/tablegen_compile_commands.yml',
+          '--tablegen-compilation-database=' .. vim.fn.expand '~/code/oss/stablehlo/llvm-build/tablegen_compile_commands.yml',
+        },
+        cmd_cwd = '/tmp',
+        capabilities = capabilities,
+      })
+      vim.lsp.enable 'tblgen_lsp_server'
     end,
   },
 
@@ -1009,6 +1091,11 @@ require('lazy').setup({
         'dockerfile',
         'cmake',
         'comment',
+        'sql',
+        'proto',
+        'solidity',
+        'haskell',
+        'tablegen',
       }
 
       -- syntax highlighting
