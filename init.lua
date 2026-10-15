@@ -1477,6 +1477,29 @@ require('lazy').setup({
     'dnlhc/glance.nvim',
     cmd = 'Glance',
   },
+  { -- render markdown in the buffer
+    'OXY2DEV/markview.nvim',
+    lazy = false, -- markview lazy-loads itself
+    dependencies = { 'nvim-treesitter/nvim-treesitter', 'nvim-tree/nvim-web-devicons' },
+    opts = {
+      preview = { icon_provider = 'devicons' },
+    },
+    keys = {
+      { '<leader>tm', '<cmd>Markview toggle<cr>', desc = '[T]oggle [M]arkview' },
+    },
+  },
+  { -- render images in the buffer (kitty graphics protocol, works in ghostty)
+    '3rd/image.nvim',
+    event = 'VeryLazy',
+    opts = {
+      backend = 'kitty',
+      processor = 'magick_cli', -- uses the magick binary, no luarocks needed
+      integrations = {
+        markdown = { enabled = true, only_render_image_at_cursor = false },
+      },
+      max_height_window_percentage = 50,
+    },
+  },
   -- TODO:
   -- - probably setup marks.nvim (more features guttermarks)
   -- - gitsigns has a lot of useful functionalities. worth looking into for code reviews
